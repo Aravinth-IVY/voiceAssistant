@@ -20,6 +20,7 @@ import androidx.lifecycle.lifecycleScope
 import com.example.vassistant.databinding.ActivityMainBinding
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.android.awaitFrame
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -34,6 +35,7 @@ class MainActivity : AppCompatActivity() {
     var bot:ArrayList<String> = ArrayList()
     private var rescount = 0
     private var result = arrayListOf<String>()
+    var isCaseDone=false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,7 +43,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
         checkPermission()
         createProducts()
-        result.add("1")
+        result.add(productList[prodcount].name)
         productName=productList[prodcount].name
         bot = arrayListOf("$productName total cases you need","total pieces","do you like to order next product")
         binding.vbtn.setOnClickListener {
@@ -49,9 +51,6 @@ class MainActivity : AppCompatActivity() {
             //just done to stop crashing
                 rescount%=3
             speak(bot[rescount])
-            rescount++
-            Thread.sleep(4000)
-            startListening()
         }
     }
 
@@ -125,9 +124,9 @@ class MainActivity : AppCompatActivity() {
             intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
             intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS,true)
             intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE,true)
-            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,155000)
-            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,155000)
-            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS,155000)
+//            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,155000)
+//            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,155000)
+//            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS,155000)
             speechRecognizer.startListening(intent)
         }
     }
@@ -158,6 +157,7 @@ class MainActivity : AppCompatActivity() {
 
                 override fun onEndOfSpeech() {
                     Log.d("MainActivity", "onEndOfSpeech")
+                    binding.resultTextView.text = "$result"
 
                     // Speech input has ended
                 }
@@ -184,9 +184,39 @@ class MainActivity : AppCompatActivity() {
                     if (matches != null && matches.size > 0) {
                         val text = matches[0]
                         Log.d("MainActivity", text)
+                        var resultText = text.split(" ")
+                        resultText.forEach { res->
+                            if(res.isDigitsOnly() && res.isNotEmpty()) {
+                                rescount++
+                                result.add(res)
+                                if(!isCaseDone) {
+                                    productList[prodcount].case = res.toInt()
+                                    isCaseDone=true
+                                }else {
+                                    productList[prodcount].piece = res.toInt()
+                                    isCaseDone=false
+                                }
+                                binding.resultTextView.text=result.toString()
+                                binding.vbtn.performClick()
+                            }else if(res.equals("yes",ignoreCase = true)){
+                                var uitext=binding.finRes.text
+                                binding.finRes.text= "$uitext \n${prodcount+1}  ${productList[prodcount].name}  c:${productList[prodcount].case}  p:${productList[prodcount].piece}"
+                                prodcount++
+                                productName=productList[prodcount].name
+                                bot[0] = "$productName total cases you need"
+                                Log.d("mainActivity", "bot list$bot")
+                                rescount=0
+                                result.add(productName)
+                                binding.resultTextView.text=result.toString()
+                                binding.vbtn.performClick()
+                            }
+                            else if (res.equals("no",ignoreCase = true) ||res.equals("stop",ignoreCase = true)){
+                                speechRecognizer.destroy()
+                            }
+                        }
+                    }else {
+                        showMessage("no Speech Recognized in onResult")
                     }
-                    showMessage("no Speech Recognized in onResult")
-
                 }
 
                 override fun onPartialResults(partialResults: Bundle) {
@@ -196,32 +226,6 @@ class MainActivity : AppCompatActivity() {
                     if (partialResultsList != null && partialResultsList.size > 0) {
                         val partialResult = partialResultsList[0]
                         binding.partialResultTextView.text=partialResult
-                        var text = partialResult.split(" ")
-                        text.forEach {res->
-                            if(res.isDigitsOnly() && res.isNotEmpty()) {
-                                runOnUiThread{result.add(res)
-                                    binding.resultTextView.text=result.toString()}
-                                speechRecognizer.stopListening()
-                                Log.d("MainActivity","thread start")
-                                Thread.sleep(2000)
-                                Log.d("MainActivity","thread stop")
-                                binding.vbtn.performClick()
-                            }else if(res.equals("yes",ignoreCase = true)){
-                                prodcount++
-                                productName=productList[prodcount].name
-                                rescount=0
-                                runOnUiThread{
-                                    result.add(productName)
-                                    binding.resultTextView.text=result.toString()}
-                                speechRecognizer.stopListening()
-                                Log.d("MainActivity","thread start")
-                                Thread.sleep(2000)
-                                Log.d("MainActivity","thread stop")
-
-                                binding.vbtn.performClick()
-                            }
-                                Log.d("MainActivity",result.toString())
-                        }
                     }
                 }
 
@@ -245,7 +249,10 @@ class MainActivity : AppCompatActivity() {
 
                 override fun onDone(utteranceId: String) {
                     // Utterance completed
-
+                    Log.d("MainActivity","speak onDone")
+                    runOnUiThread{
+                        startListening()
+                    }
                 }
 
                 override fun onError(utteranceId: String) {
