@@ -63,24 +63,14 @@ class MainActivity : AppCompatActivity() {
 
         checkPermission()
 
-
         binding.vbtn.setOnClickListener {
-
             speakAndListen()
-            //speakAndListen("Product"+productList[prodcount].id+ " " + productList[prodcount].name + "and the quantity is "+productList[prodcount].piece +"peaces")
-
-            //Thread.sleep(4000)
-
         }
     }
 
     private fun speakAndListen(){
         isSepaking=true
-        speak("Product"+productList[prodcount].id+ " " + productList[prodcount].name + "and the quantity is "+productList[prodcount].piece +"peaces")
-
-        Thread.sleep(4000)
-        isSepaking=false
-       // startListening()
+        speak("Item Number is "+productList[prodcount].id+ " Name of the product is  " + productList[prodcount].name + "and the quantity is "+productList[prodcount].piece +"peaces")
     }
 
     private fun checkPermission() {
@@ -115,7 +105,6 @@ class MainActivity : AppCompatActivity() {
         initializeTextToSpeech()
         // Any other initialization related to speech components
     }
-
 
     private fun initializeTextToSpeech() {
         textToSpeech = TextToSpeech(
@@ -191,8 +180,9 @@ class MainActivity : AppCompatActivity() {
                             if( partialResult.isNotEmpty() && partialResult.contains("next product")){
                                 prodcount++
                                 speechRecognizer.stopListening()
-                                Thread.sleep(4000)
                                 speakAndListen()
+                            }else if( partialResult.isNotEmpty() && partialResult.contains("stop it")){
+                                speechRecognizer.stopListening()
                             }
 
                     }
@@ -207,8 +197,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
-
     private fun startListening() {
         if (speechRecognizer != null) {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
@@ -216,9 +204,9 @@ class MainActivity : AppCompatActivity() {
             intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
             intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS,true)
             //intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE,true)
-            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,155000)
-            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,155000)
-            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS,155000)
+            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,5000)
+            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,5000)
+            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS,15000)
             speechRecognizer.startListening(intent)
         }
     }
