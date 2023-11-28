@@ -14,7 +14,13 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.os.bundleOf
+import androidx.core.text.isDigitsOnly
+import androidx.lifecycle.lifecycleScope
 import com.example.vassistant.databinding.ActivityMainBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.android.awaitFrame
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
@@ -22,16 +28,11 @@ class MainActivity : AppCompatActivity() {
     private val RECORD_AUDIO_PERMISSION_CODE = 123
     private lateinit var speechRecognizer: SpeechRecognizer
     lateinit var textToSpeech: TextToSpeech
+    var productList:ArrayList<ProductBo> = ArrayList()
+    var prodcount = 0
+    var productName = "slice"
+    var bot:ArrayList<String> = ArrayList()
     private var rescount = 0
-    private var bot = arrayListOf(
-        "order your products",
-        "order quantity ",
-        "cases count",
-        "pieces count",
-        "do you like to add another product"
-    )
-    private var prodList = arrayListOf("pepsi", "coca-cola", "sprite", "slice", "miranda")
-    private var quanList = arrayListOf("150 ml", "250 ml", "500 ml", "750 ml", "1 l", "2 l")
     private var result = arrayListOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,10 +40,36 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         checkPermission()
+        createProducts()
+        result.add("1")
+        productName=productList[prodcount].name
+        bot = arrayListOf("$productName total cases you need","total pieces","do you like to order next product")
         binding.vbtn.setOnClickListener {
-            if (rescount == 0) speak(bot[rescount])
+            Log.d("MainActivity", "rescount:$rescount prodCount : ${prodcount} product name:${productList[prodcount].name}")
+            //just done to stop crashing
+                rescount%=3
+            speak(bot[rescount])
+            rescount++
+            Thread.sleep(4000)
             startListening()
         }
+    }
+
+    private fun createProducts() {
+        productList = arrayListOf(
+            ProductBo(1, "miranda 250ml", 0, 0),
+            ProductBo(2, "miranda 500ml", 0, 0),
+            ProductBo(3, "miranda 1 liter", 0, 0),
+            ProductBo(4, "miranda 2 liter", 0, 0),
+            ProductBo(5, "slice 250ml", 0, 0),
+            ProductBo(6, "slice 500ml", 0, 0),
+            ProductBo(7, "slice 1 liter", 0, 0),
+            ProductBo(8, "slice 2 liter", 0, 0),
+            ProductBo(9, "fanta 250ml", 0, 0),
+            ProductBo(10, "fanta 500ml", 0, 0),
+            ProductBo(11, "fanta 1 liter", 0, 0),
+            ProductBo(12, "fanta 2 liter", 0, 0)
+        )
     }
 
     private fun checkPermission() {
@@ -86,7 +113,7 @@ class MainActivity : AppCompatActivity() {
             applicationContext
         ) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                textToSpeech.language = Locale.US
+                textToSpeech.language = Locale.getDefault()
             }
         }
     }
@@ -97,10 +124,10 @@ class MainActivity : AppCompatActivity() {
             intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
             intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS,true)
-            intent.putExtra(
-                RecognizerIntent.EXTRA_PROMPT,
-                "say something"
-            )
+            intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE,true)
+            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,155000)
+            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,155000)
+            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS,155000)
             speechRecognizer.startListening(intent)
         }
     }
@@ -126,7 +153,6 @@ class MainActivity : AppCompatActivity() {
 
                 override fun onBufferReceived(buffer: ByteArray) {
                     Log.d("MainActivity", "onBufferReceived")
-
                     // Audio data received
                 }
 
@@ -157,27 +183,10 @@ class MainActivity : AppCompatActivity() {
                     val matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     if (matches != null && matches.size > 0) {
                         val text = matches[0]
-                        if (text.equals("yes", ignoreCase = true)) rescount = 0
-                        showMessage("You said: $text")
-                        Log.d("MainActivity", "you said: $text")
-                        Log.d("MainActivity", "your result: $result")
-                        if (text.equals("stop", ignoreCase = true) || text.equals(
-                                "no",
-                                ignoreCase = true
-                            )
-                        ) {
-                            binding.resultTextView.text = "final result: $result"
-                            Log.d("MainActivity", "final result: $result")
-                        } else {
-                            try {
-                                updateList(text)
-                            } catch (e: InterruptedException) {
-                                throw RuntimeException(e)
-                            }
-                        }
-                    } else {
-                        showMessage("No speech recognized")
+                        Log.d("MainActivity", text)
                     }
+                    showMessage("no Speech Recognized in onResult")
+
                 }
 
                 override fun onPartialResults(partialResults: Bundle) {
@@ -187,6 +196,32 @@ class MainActivity : AppCompatActivity() {
                     if (partialResultsList != null && partialResultsList.size > 0) {
                         val partialResult = partialResultsList[0]
                         binding.partialResultTextView.text=partialResult
+                        var text = partialResult.split(" ")
+                        text.forEach {res->
+                            if(res.isDigitsOnly() && res.isNotEmpty()) {
+                                runOnUiThread{result.add(res)
+                                    binding.resultTextView.text=result.toString()}
+                                speechRecognizer.stopListening()
+                                Log.d("MainActivity","thread start")
+                                Thread.sleep(2000)
+                                Log.d("MainActivity","thread stop")
+                                binding.vbtn.performClick()
+                            }else if(res.equals("yes",ignoreCase = true)){
+                                prodcount++
+                                productName=productList[prodcount].name
+                                rescount=0
+                                runOnUiThread{
+                                    result.add(productName)
+                                    binding.resultTextView.text=result.toString()}
+                                speechRecognizer.stopListening()
+                                Log.d("MainActivity","thread start")
+                                Thread.sleep(2000)
+                                Log.d("MainActivity","thread stop")
+
+                                binding.vbtn.performClick()
+                            }
+                                Log.d("MainActivity",result.toString())
+                        }
                     }
                 }
 
@@ -199,40 +234,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    @Throws(InterruptedException::class)
-    private fun updateList(text: String) {
-        var flag = false
-        if (rescount < 2) {
-            for (product in prodList) {
-                if (text.equals(product, ignoreCase = true)) {
-                    result.add(text)
-                    rescount += 1
-                    flag = true
-                    speak(bot.get(rescount))
-                    Log.d("MainActivity", "$result count=$rescount")
-                }
-            }
-            for (quantity in quanList) {
-                if (text.equals(quantity, ignoreCase = true)) {
-                    result.add(text)
-                    rescount += 1
-                    speak(bot.get(rescount))
-                    flag = true
-                    Log.d("MainActivity", "$result count=$rescount")
-                }
-            }
-            if (!flag) speak("not available, try different")
-        } else {
-            result.add(text)
-            rescount += 1
-            speak(bot[rescount])
-            Log.d("MainActivity", "$result count=$rescount")
-        }
-        binding.resultTextView.text = result.toString()
-        binding.vbtn.performClick()
-    }
-
-
 
     private fun speak(text: String) {
         if (textToSpeech != null) {
@@ -244,6 +245,7 @@ class MainActivity : AppCompatActivity() {
 
                 override fun onDone(utteranceId: String) {
                     // Utterance completed
+
                 }
 
                 override fun onError(utteranceId: String) {
