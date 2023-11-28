@@ -1,6 +1,7 @@
 package com.example.vassistant
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -179,6 +180,7 @@ class MainActivity : AppCompatActivity() {
 
                 }
 
+                @SuppressLint("SuspiciousIndentation")
                 override fun onPartialResults(partialResults: Bundle) {
                     Log.d("MainActivity","onPartialResults")
                     val partialResultsList =
